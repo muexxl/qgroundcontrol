@@ -52,6 +52,7 @@ Item {
     readonly property string gotoTitle:                     qsTr("Go To Location")
     readonly property string vtolTransitionTitle:           qsTr("VTOL Transition")
     readonly property string roiTitle:                      qsTr("ROI")
+    readonly property string actionListTitle:               qsTr("Action")
 
     readonly property string armMessage:                        qsTr("Arm the vehicle.")
     readonly property string disarmMessage:                     qsTr("Disarm the vehicle")
@@ -95,6 +96,7 @@ Item {
     readonly property int actionVtolTransitionToFwdFlight:  20
     readonly property int actionVtolTransitionToMRFlight:   21
     readonly property int actionROI:                        22
+    readonly property int actionActionList:                 23
 
     property bool   _useChecklist:              QGroundControl.settingsManager.appSettings.useChecklist.rawValue && QGroundControl.corePlugin.options.preFlightChecklistUrl.toString().length
     property bool   _enforceChecklist:          _useChecklist && QGroundControl.settingsManager.appSettings.enforceChecklist.rawValue
@@ -114,11 +116,12 @@ Item {
     property bool showROI:              _guidedActionsEnabled && !_hideROI && _vehicleFlying && activeVehicle.roiModeSupported && !_missionActive
     property bool showLandAbort:        _guidedActionsEnabled && _vehicleFlying && _fixedWingOnApproach
     property bool showGotoLocation:     _guidedActionsEnabled && _vehicleFlying
+    property bool showActionList:       _guidedActionsEnabled && (showStartMission || showResumeMission || showChangeAlt || showLandAbort)
 
     // Note: The '_missionItemCount - 2' is a hack to not trigger resume mission when a mission ends with an RTL item
     property bool showResumeMission:    activeVehicle && !_vehicleArmed && _vehicleWasFlying && _missionAvailable && _resumeMissionIndex > 0 && (_resumeMissionIndex < _missionItemCount - 2)
 
-    property bool guidedUIVisible:      guidedActionConfirm.visible || guidedActionList.visible
+    property bool guidedUIVisible:      confirmDialog.visible || actionList.visible
 
     property var    _corePlugin:            QGroundControl.corePlugin
     property bool   _guidedActionsEnabled:  (!ScreenTools.isDebug && QGroundControl.corePlugin.options.guidedActionsRequireRCRSSI && activeVehicle) ? _rcRSSIAvailable : activeVehicle
@@ -190,12 +193,18 @@ Item {
             console.log("showStartMission", showStartMission)
         }
         _outputState()
+        if (showStartMission) {
+            confirmAction(actionStartMission)
+        }
     }
     onShowContinueMissionChanged: {
         if (_corePlugin.guidedActionsControllerLogging()) {
             console.log("showContinueMission", showContinueMission)
         }
         _outputState()
+        if (showContinueMission) {
+            confirmAction(actionContinueMission)
+        }
     }
     onShowRTLChanged: {
         if (_corePlugin.guidedActionsControllerLogging()) {
@@ -208,6 +217,11 @@ Item {
             console.log("showChangeAlt", showChangeAlt)
         }
         _outputState()
+    }
+    onShowLandAbortChanged: {
+        if (showLandAbort) {
+            confirmAction(actionLandAbort)
+        }
     }
 
     on_VehicleFlyingChanged: {
@@ -226,6 +240,46 @@ Item {
         _vehicleInRTLMode =     activeVehicle ? _flightMode === activeVehicle.rtlFlightMode || _flightMode === activeVehicle.smartRTLFlightMode : false
         _vehicleInLandMode =    activeVehicle ? _flightMode === activeVehicle.landFlightMode : false
         _vehicleInMissionMode = activeVehicle ? _flightMode === activeVehicle.missionFlightMode : false // Must be last to get correct signalling for showStartMission popups
+    }
+
+    Connections {
+        target:                     missionController
+        onResumeMissionUploadFail:  confirmAction(actionResumeMissionUploadFail)
+    }
+
+    Connections {
+        target:                             mainWindow
+        onArmVehicleRequest:                armVehicleRequest()
+        onDisarmVehicleRequest:             disarmVehicleRequest()
+        onVtolTransitionToFwdFlightRequest: vtolTransitionToFwdFlightRequest()
+        onVtolTransitionToMRFlightRequest:  vtolTransitionToMRFlightRequest()
+    }
+
+    function armVehicleRequest() {
+        confirmAction(actionArm)
+    }
+
+    function disarmVehicleRequest() {
+        if (showEmergenyStop) {
+            confirmAction(actionEmergencyStop)
+        } else {
+            confirmAction(actionDisarm)
+        }
+
+    }
+
+    function vtolTransitionToFwdFlightRequest() {
+        confirmAction(actionVtolTransitionToFwdFlight)
+    }
+
+    function vtolTransitionToMRFlightRequest() {
+        confirmAction(actionVtolTransitionToMRFlight)
+    }
+
+    function closeAll() {
+        confirmDialog.visible =     false
+        actionList.visible =        false
+        altitudeSlider.visible =    false
     }
 
     // Called when an action is about to be executed in order to confirm
@@ -361,6 +415,9 @@ Item {
             confirmDialog.message = roiMessage
             confirmDialog.hideTrigger = Qt.binding(function() { return !showROI })
             break;
+        case actionActionList:
+            actionList.show()
+            return
         default:
             console.warn("Unknown actionCode", actionCode)
             return

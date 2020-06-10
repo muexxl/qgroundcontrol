@@ -30,11 +30,14 @@ Rectangle {
     anchors.fill:       parent
     anchors.margins:    ScreenTools.defaultFontPixelWidth
 
-    property Fact _percentRemainingAnnounce:    QGroundControl.settingsManager.appSettings.batteryPercentRemainingAnnounce
-    property Fact _savePath:                    QGroundControl.settingsManager.appSettings.savePath
-    property Fact _appFontPointSize:            QGroundControl.settingsManager.appSettings.appFontPointSize
-    property Fact _userBrandImageIndoor:        QGroundControl.settingsManager.brandImageSettings.userBrandImageIndoor
-    property Fact _userBrandImageOutdoor:       QGroundControl.settingsManager.brandImageSettings.userBrandImageOutdoor
+    property Fact _percentRemainingAnnounce:            QGroundControl.settingsManager.appSettings.batteryPercentRemainingAnnounce
+    property Fact _savePath:                            QGroundControl.settingsManager.appSettings.savePath
+    property Fact _appFontPointSize:                    QGroundControl.settingsManager.appSettings.appFontPointSize
+    property Fact _userBrandImageIndoor:                QGroundControl.settingsManager.brandImageSettings.userBrandImageIndoor
+    property Fact _userBrandImageOutdoor:               QGroundControl.settingsManager.brandImageSettings.userBrandImageOutdoor
+    property Fact _virtualJoystick:                     QGroundControl.settingsManager.appSettings.virtualJoystick
+    property Fact _virtualJoystickAutoCenterThrottle:   QGroundControl.settingsManager.appSettings.virtualJoystickAutoCenterThrottle
+
     property real _labelWidth:                  ScreenTools.defaultFontPixelWidth * 20
     property real _comboFieldWidth:             ScreenTools.defaultFontPixelWidth * 30
     property real _valueFieldWidth:             ScreenTools.defaultFontPixelWidth * 10
@@ -99,7 +102,7 @@ Rectangle {
                                 QGCLabel { text: modelData }
                             }
                             Repeater {
-                                model:  [ QGroundControl.settingsManager.unitsSettings.distanceUnits, QGroundControl.settingsManager.unitsSettings.areaUnits, QGroundControl.settingsManager.unitsSettings.speedUnits, QGroundControl.settingsManager.unitsSettings.temperatureUnits ]
+                                model:  [ QGroundControl.settingsManager.unitsSettings.horizontalDistanceUnits, QGroundControl.settingsManager.unitsSettings.areaUnits, QGroundControl.settingsManager.unitsSettings.speedUnits, QGroundControl.settingsManager.unitsSettings.temperatureUnits ]
                                 FactComboBox {
                                     Layout.preferredWidth:  _comboFieldWidth
                                     fact:                   modelData
@@ -162,7 +165,7 @@ Rectangle {
                                     text:       qsTr("Map Provider")
                                     width:      _labelWidth
                                 }
-                                
+
                                 QGCComboBox {
                                     id:             mapCombo
                                     model:          QGroundControl.mapEngineManager.mapProviderList
@@ -512,22 +515,23 @@ Rectangle {
                                 property Fact _showLogReplayStatusBar: QGroundControl.settingsManager.flyViewSettings.showLogReplayStatusBar
                             }
 
-                            FactCheckBox {
-                                text:       qsTr("Virtual Joystick")
-                                visible:    _virtualJoystick.visible
-                                fact:       _virtualJoystick
+                            RowLayout {
+                                spacing: ScreenTools.defaultFontPixelWidth
 
-                                property Fact _virtualJoystick: QGroundControl.settingsManager.appSettings.virtualJoystick
+                                FactCheckBox {
+                                    text:       qsTr("Virtual Joystick")
+                                    visible:    _virtualJoystick.visible
+                                    fact:       _virtualJoystick
+                                }
+
+                                FactCheckBox {
+                                    text:       qsTr("Auto-Center Throttle")
+                                    visible:    _virtualJoystickAutoCenterThrottle.visible
+                                    enabled:    _virtualJoystick.rawValue
+                                    fact:       _virtualJoystickAutoCenterThrottle
+                                }
                             }
 
-                            FactCheckBox {
-                                text:       qsTr("Auto-Center throttle")
-                                visible:    _virtualJoystickCentralized.visible && activeVehicle && (activeVehicle.sub || activeVehicle.rover)
-                                fact:       _virtualJoystickCentralized
-                                Layout.leftMargin: _margins
-
-                                property Fact _virtualJoystickCentralized: QGroundControl.settingsManager.appSettings.virtualJoystickCentralized
-                            }
                             FactCheckBox {
                                 text:       qsTr("Use Vertical Instrument Panel")
                                 visible:    _alternateInstrumentPanel.visible

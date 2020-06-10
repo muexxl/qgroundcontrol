@@ -98,6 +98,7 @@ void QGCToolbox::setChildToolboxes(void)
 {
     // SettingsManager must be first so settings are available to any subsequent tools
     _settingsManager->setToolbox(this);
+
     _corePlugin->setToolbox(this);
     _audioOutput->setToolbox(this);
     _factSystem->setToolbox(this);

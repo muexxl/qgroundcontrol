@@ -26,8 +26,7 @@
 #include "PlanMasterController.h"
 #include "GeoFenceManager.h"
 #include "RallyPointManager.h"
-#include "CoordinateVector.h"
-#include "ParameterManager.h"
+#include "FlightPathSegment.h"
 #include "QGCApplication.h"
 #include "QGCImageProvider.h"
 #include "MissionCommandTree.h"
@@ -45,6 +44,7 @@
 #include "TrajectoryPoints.h"
 #include "QGCGeo.h"
 #include "TerrainProtocolHandler.h"
+#include "ParameterManager.h"
 
 #if defined(QGC_AIRMAP_ENABLED)
 #include "AirspaceVehicleManager.h"
@@ -414,8 +414,8 @@ Vehicle::Vehicle(MAV_AUTOPILOT              firmwareType,
     , _flightDistanceFact   (0, _flightDistanceFactName,    FactMetaData::valueTypeDouble)
     , _flightTimeFact       (0, _flightTimeFactName,        FactMetaData::valueTypeElapsedTimeInSeconds)
     , _distanceToHomeFact   (0, _distanceToHomeFactName,    FactMetaData::valueTypeDouble)
-    , _headingToNextWPFact  (0, _headingToNextWPFactName,   FactMetaData::valueTypeDouble)
     , _missionItemIndexFact (0, _missionItemIndexFactName,  FactMetaData::valueTypeUint16)
+    , _headingToNextWPFact  (0, _headingToNextWPFactName,   FactMetaData::valueTypeDouble)
     , _headingToHomeFact    (0, _headingToHomeFactName,     FactMetaData::valueTypeDouble)
     , _distanceToGCSFact    (0, _distanceToGCSFactName,     FactMetaData::valueTypeDouble)
     , _hobbsFact            (0, _hobbsFactName,             FactMetaData::valueTypeString)
@@ -446,7 +446,8 @@ void Vehicle::_commonInit()
 {
     _firmwarePlugin = _firmwarePluginManager->firmwarePluginForAutopilot(_firmwareType, _vehicleType);
 
-    connect(_firmwarePlugin, &FirmwarePlugin::toolbarIndicatorsChanged, this, &Vehicle::toolBarIndicatorsChanged);
+    connect(_firmwarePlugin, &FirmwarePlugin::toolIndicatorsChanged, this, &Vehicle::toolIndicatorsChanged);
+    connect(_firmwarePlugin, &FirmwarePlugin::modeIndicatorsChanged, this, &Vehicle::modeIndicatorsChanged);
 
     connect(this, &Vehicle::coordinateChanged,      this, &Vehicle::_updateDistanceHeadingToHome);
     connect(this, &Vehicle::coordinateChanged,      this, &Vehicle::_updateDistanceToGCS);
@@ -1178,6 +1179,24 @@ void Vehicle::_handleDistanceSensor(mavlink_message_t& message)
     }
 }
 
+// Ignore warnings from mavlink headers for both GCC/Clang and MSVC
+#ifdef __GNUC__
+
+#if __GNUC__ > 8
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#elif defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Waddress-of-packed-member"
+#else
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wall"
+#endif
+
+#else
+#pragma warning(push, 0)
+#endif
+
 void Vehicle::_handleAttitudeTarget(mavlink_message_t& message)
 {
     mavlink_attitude_target_t attitudeTarget;
@@ -1516,7 +1535,7 @@ QString Vehicle::vehicleUIDStr()
 {
     QString uid;
     uint8_t* pUid = (uint8_t*)(void*)&_uid;
-    uid.sprintf("%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X",
+    uid.asprintf("%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X",
                 pUid[0] & 0xff,
             pUid[1] & 0xff,
             pUid[2] & 0xff,
@@ -2001,6 +2020,17 @@ void Vehicle::_handleRCChannelsRaw(mavlink_message_t& message)
     emit remoteControlRSSIChanged(channels.rssi);
     emit rcChannelsChanged(channelCount, pwmValues);
 }
+
+// Pop warnings ignoring for mavlink headers for both GCC/Clang and MSVC
+#ifdef __GNUC__
+    #if defined(__clang__)
+        #pragma clang diagnostic pop
+    #else
+        #pragma GCC diagnostic pop
+    #endif
+#else
+#pragma warning(pop, 0)
+#endif
 
 void Vehicle::_handleScaledPressure(mavlink_message_t& message) {
     mavlink_scaled_pressure_t pressure;
@@ -3150,7 +3180,7 @@ void Vehicle::guidedModeGotoLocation(const QGeoCoordinate& gotoCoord)
     }
     double maxDistance = _settingsManager->flyViewSettings()->maxGoToLocationDistance()->rawValue().toDouble();
     if (coordinate().distanceTo(gotoCoord) > maxDistance) {
-        qgcApp()->showAppMessage(QString("New location is too far. Must be less than %1 %2.").arg(qRound(FactMetaData::metersToAppSettingsDistanceUnits(maxDistance).toDouble())).arg(FactMetaData::appSettingsDistanceUnitsString()));
+        qgcApp()->showAppMessage(QString("New location is too far. Must be less than %1 %2.").arg(qRound(FactMetaData::metersToAppSettingsHorizontalDistanceUnits(maxDistance).toDouble())).arg(FactMetaData::appSettingsHorizontalDistanceUnitsString()));
         return;
     }
     _firmwarePlugin->guidedModeGotoLocation(this, gotoCoord);
@@ -3902,10 +3932,19 @@ QString Vehicle::vehicleImageCompass() const
         return QString();
 }
 
-const QVariantList& Vehicle::toolBarIndicators()
+const QVariantList& Vehicle::toolIndicators()
 {
     if(_firmwarePlugin) {
-        return _firmwarePlugin->toolBarIndicators(this);
+        return _firmwarePlugin->toolIndicators(this);
+    }
+    static QVariantList emptyList;
+    return emptyList;
+}
+
+const QVariantList& Vehicle::modeIndicators()
+{
+    if(_firmwarePlugin) {
+        return _firmwarePlugin->modeIndicators(this);
     }
     static QVariantList emptyList;
     return emptyList;
@@ -3958,6 +3997,7 @@ void Vehicle::_handleADSBVehicle(const mavlink_message_t& message)
         ADSBVehicle::VehicleInfo_t vehicleInfo;
 
         vehicleInfo.availableFlags = 0;
+        vehicleInfo.icaoAddress = adsbVehicleMsg.ICAO_address;
 
         vehicleInfo.location.setLatitude(adsbVehicleMsg.lat / 1e7);
         vehicleInfo.location.setLongitude(adsbVehicleMsg.lon / 1e7);
@@ -4062,8 +4102,7 @@ QString Vehicle::hobbsMeter()
         int hours   = hobbsTimeSeconds / 3600;
         int minutes = (hobbsTimeSeconds % 3600) / 60;
         int seconds = hobbsTimeSeconds % 60;
-        QString timeStr;
-        timeStr.sprintf("%04d:%02d:%02d", hours, minutes, seconds);
+        QString timeStr = QString::asprintf("%04d:%02d:%02d", hours, minutes, seconds);
         qCDebug(VehicleLog) << "Hobbs Meter:" << timeStr << "(" << factHi->rawValue().toUInt() << factLo->rawValue().toUInt() << ")";
         return timeStr;
     }

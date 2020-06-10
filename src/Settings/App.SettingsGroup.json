@@ -1,3 +1,7 @@
+{
+    "version":      1,
+    "fileType":  "FactMetaData",
+    "QGC.MetaData.Facts":
 [
 {
     "name":             "offlineEditingFirmwareType",
@@ -18,7 +22,7 @@
 {
     "name":             "offlineEditingCruiseSpeed",
     "shortDescription": "Offline editing cruise speed",
-    "longDescription":  "This value defines the default cruising speed for forward flight vehicles for use in calculating mission statistics. It does not modify the flight speed for a specific flight plan.",
+    "longDescription":  "This value defines the default speed for calculating mission statistics for vehicles which do not support hover or VTOL vehicles in fixed wing mode. It does not modify the flight speed for a specific flight plan.",
     "type":             "double",
     "defaultValue":     15.0,
     "min":              1.0,
@@ -28,7 +32,7 @@
 {
     "name":             "offlineEditingHoverSpeed",
     "shortDescription": "Offline editing hover speed",
-    "longDescription":  "This value defines the default cruising speed for multi-rotor vehicles for use in calculating mission statistics. It does not modify the flight speed for a specific flight plan.",
+    "longDescription":  "This value defines the default speed for calculating mission statistics for multi-rotor vehicles or VTOL vehicle in multi-rotor mode. It does not modify the flight speed for a specific flight plan.",
     "type":             "double",
     "defaultValue":     5.0,
     "min":              1.0,
@@ -111,9 +115,9 @@
     "defaultValue":     false
 },
 {
-    "name":             "virtualJoystickCentralized",
-    "shortDescription": "Set virtual joystick to be centralize throttle (spring-loaded).",
-    "longDescription":  "If this option is enabled the virtual joystick throttle stick will be centralized.",
+    "name":             "virtualJoystickAutoCenterThrottle",
+    "shortDescription": "Auto-Center Throttle",
+    "longDescription":  "If enabled the throttle stick will snap back to center when released.",
     "type":             "bool",
     "defaultValue":     false
 },
@@ -278,10 +282,24 @@
     "defaultValue":     false
 },
 {
-    "name":             "firstTimeStart",
-    "shortDescription": "True if we should popup first time wizard",
-    "longDescription":  "If this option is enabled, the first time startup wizard will prompt the user at first application start on a new system.",
+    "name":             "firstRunPromptIdsShown",
+    "shortDescription": "Comma separated list of first run prompt ids which have already been shown.",
+    "type":             "string",
+    "defaultValue":     ""
+},
+{
+    "name":             "forwardMavlink",
+    "shortDescription": "Enable mavlink forwarding",
+    "longDescription":  "Enable mavlink forwarding",
     "type":             "bool",
-    "defaultValue":     true
+    "defaultValue":     false
+},
+{
+    "name":             "forwardMavlinkHostName",
+    "shortDescription": "Host name",
+    "longDescription":  "Host name to forward mavlink to. i.e: localhost:14445",
+    "type":             "string",
+    "defaultValue":     "localhost:14445"
 }
 ]
+}

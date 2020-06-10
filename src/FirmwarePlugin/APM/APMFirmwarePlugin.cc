@@ -377,6 +377,7 @@ bool APMFirmwarePlugin::_handleIncomingStatusText(Vehicle* vehicle, mavlink_mess
                 case MAV_TYPE_QUADROTOR:
                     // Start TCP video handshake with ARTOO in case it's a Solo running ArduPilot firmware
                     _soloVideoHandshake(vehicle, false /* originalSoloFirmware */);
+                    [[fallthrough]];
                 case MAV_TYPE_COAXIAL:
                 case MAV_TYPE_HELICOPTER:
                 case MAV_TYPE_SUBMARINE:
@@ -753,17 +754,17 @@ QString APMFirmwarePlugin::missionCommandOverrides(MAV_TYPE vehicleType) const
 {
     switch (vehicleType) {
     case MAV_TYPE_GENERIC:
-        return QStringLiteral(":/json/APM/MavCmdInfoCommon.json");
+        return QStringLiteral(":/json/APM-MavCmdInfoCommon.json");
     case MAV_TYPE_FIXED_WING:
-        return QStringLiteral(":/json/APM/MavCmdInfoFixedWing.json");
+        return QStringLiteral(":/json/APM-MavCmdInfoFixedWing.json");
     case MAV_TYPE_QUADROTOR:
-        return QStringLiteral(":/json/APM/MavCmdInfoMultiRotor.json");
+        return QStringLiteral(":/json/APM-MavCmdInfoMultiRotor.json");
     case MAV_TYPE_VTOL_QUADROTOR:
-        return QStringLiteral(":/json/APM/MavCmdInfoVTOL.json");
+        return QStringLiteral(":/json/APM-MavCmdInfoVTOL.json");
     case MAV_TYPE_SUBMARINE:
-        return QStringLiteral(":/json/APM/MavCmdInfoSub.json");
+        return QStringLiteral(":/json/APM-MavCmdInfoSub.json");
     case MAV_TYPE_GROUND_ROVER:
-        return QStringLiteral(":/json/APM/MavCmdInfoRover.json");
+        return QStringLiteral(":/json/APM-MavCmdInfoRover.json");
     default:
         qWarning() << "APMFirmwarePlugin::missionCommandOverrides called with bad MAV_TYPE:" << vehicleType;
         return QString();
@@ -792,7 +793,11 @@ void APMFirmwarePlugin::_soloVideoHandshake(Vehicle* vehicle, bool originalSoloF
 
     socket->connectToHost(_artooIP, _artooVideoHandshakePort);
     if (originalSoloFirmware) {
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
         QObject::connect(socket, static_cast<void (QTcpSocket::*)(QAbstractSocket::SocketError)>(&QTcpSocket::error), this, &APMFirmwarePlugin::_artooSocketError);
+#else
+        QObject::connect(socket, &QAbstractSocket::errorOccurred, this, &APMFirmwarePlugin::_artooSocketError);
+#endif
     }
 }
 

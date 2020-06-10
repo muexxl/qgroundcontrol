@@ -1,4 +1,4 @@
-/****************************************************************************
+/***************_qgcTranslatorSourceCode***********************************************
  *
  * (c) 2009-2020 QGROUNDCONTROL PROJECT <http://www.qgroundcontrol.org>
  *
@@ -39,7 +39,7 @@ public:
     DEFINE_SETTINGFACT(audioMuted)
     DEFINE_SETTINGFACT(checkInternet)
     DEFINE_SETTINGFACT(virtualJoystick)
-    DEFINE_SETTINGFACT(virtualJoystickCentralized)
+    DEFINE_SETTINGFACT(virtualJoystickAutoCenterThrottle)
     DEFINE_SETTINGFACT(appFontPointSize)
     DEFINE_SETTINGFACT(indoorPalette)
     DEFINE_SETTINGFACT(showLargeCompass)
@@ -59,7 +59,9 @@ public:
     DEFINE_SETTINGFACT(disableAllPersistence)
     DEFINE_SETTINGFACT(usePairing)
     DEFINE_SETTINGFACT(saveCsvTelemetry)
-    DEFINE_SETTINGFACT(firstTimeStart)
+    DEFINE_SETTINGFACT(firstRunPromptIdsShown)
+    DEFINE_SETTINGFACT(forwardMavlink)
+    DEFINE_SETTINGFACT(forwardMavlinkHostName)
 
 
     // Although this is a global setting it only affects ArduPilot vehicle since PX4 automatically starts the stream from the vehicle side
@@ -88,6 +90,11 @@ public:
     QString videoSavePath       ();
     QString crashSavePath       ();
 
+    // Helper methods for working with firstRunPromptIds QVariant settings string list
+    static QList<int> firstRunPromptsIdsVariantToList   (const QVariant& firstRunPromptIds);
+    static QVariant   firstRunPromptsIdsListToVariant   (const QList<int>& rgIds);
+    Q_INVOKABLE void  firstRunPromptIdsMarkIdAsShown    (int id);
+
     static MAV_AUTOPILOT    offlineEditingFirmwareTypeFromFirmwareType  (MAV_AUTOPILOT firmwareType);
     static MAV_TYPE         offlineEditingVehicleTypeFromVehicleType    (MAV_TYPE vehicleType);
 
@@ -111,6 +118,12 @@ public:
     static const char* videoDirectory;
     static const char* crashDirectory;
 
+    // Returns the current language setting bypassing the standard SettingsGroup path. This should only be used
+    // by QGCApplication::setLanguage to query the language setting as early in the boot process as possible.
+    // Specfically prior to any JSON files being loaded such that JSON file can be translated. Also since this
+    // is a one-off mechanism custom build overrides for language are not currently supported.
+    static int _languageID(void);
+
 signals:
     void savePathsChanged();
 
@@ -118,8 +131,4 @@ private slots:
     void _indoorPaletteChanged();
     void _checkSavePathDirectories();
     void _languageChanged();
-
-private:
-    QTranslator _QGCTranslator;
-
 };

@@ -615,7 +615,8 @@ public:
     Q_PROPERTY(unsigned int         telemetryTXBuffer       READ telemetryTXBuffer                                      NOTIFY telemetryTXBufferChanged)
     Q_PROPERTY(int                  telemetryLNoise         READ telemetryLNoise                                        NOTIFY telemetryLNoiseChanged)
     Q_PROPERTY(int                  telemetryRNoise         READ telemetryRNoise                                        NOTIFY telemetryRNoiseChanged)
-    Q_PROPERTY(QVariantList         toolBarIndicators       READ toolBarIndicators                                      NOTIFY toolBarIndicatorsChanged)
+    Q_PROPERTY(QVariantList         toolIndicators          READ toolIndicators                                         NOTIFY toolIndicatorsChanged)
+    Q_PROPERTY(QVariantList         modeIndicators          READ modeIndicators                                         NOTIFY modeIndicatorsChanged)
     Q_PROPERTY(bool              initialPlanRequestComplete READ initialPlanRequestComplete                             NOTIFY initialPlanRequestCompleteChanged)
     Q_PROPERTY(QVariantList         staticCameraList        READ staticCameraList                                       CONSTANT)
     Q_PROPERTY(QGCCameraManager*    dynamicCameras          READ dynamicCameras                                         NOTIFY dynamicCamerasChanged)
@@ -1086,7 +1087,8 @@ public:
     QString vehicleImageOutline () const;
     QString vehicleImageCompass () const;
 
-    const QVariantList&         toolBarIndicators   ();
+    const QVariantList&         toolIndicators      ();
+    const QVariantList&         modeIndicators      ();
     const QVariantList&         staticCameraList    () const;
 
     bool capabilitiesKnown      () const { return _capabilityBitsKnown; }
@@ -1160,7 +1162,8 @@ signals:
     void capabilitiesKnownChanged       (bool capabilitiesKnown);
     void initialPlanRequestCompleteChanged(bool initialPlanRequestComplete);
     void capabilityBitsChanged          (uint64_t capabilityBits);
-    void toolBarIndicatorsChanged       ();
+    void toolIndicatorsChanged          ();
+    void modeIndicatorsChanged          ();
     void highLatencyLinkChanged         (bool highLatencyLink);
     void priorityLinkNameChanged        (const QString& priorityLinkName);
     void linksChanged                   ();
@@ -1441,7 +1444,7 @@ private:
     QTimer                          _mavCommandAckTimer;
     int                             _mavCommandRetryCount;
     int                             _capabilitiesRetryCount =               0;
-    QTime                           _capabilitiesRetryElapsed;
+    QElapsedTimer                   _capabilitiesRetryElapsed;
     static const int                _mavCommandMaxRetryCount =              3;
     static const int                _mavCommandAckTimeoutMSecs =            3000;
     static const int                _mavCommandAckTimeoutMSecsHighLatency = 120000;
@@ -1490,7 +1493,7 @@ private:
     QTimer  _sendMultipleTimer;
     int     _nextSendMessageMultipleIndex;
 
-    QTime                           _flightTimer;
+    QElapsedTimer                   _flightTimer;
     QTimer                          _flightTimeUpdater;
     TrajectoryPoints*               _trajectoryPoints;
     QmlObjectListModel              _cameraTriggerPoints;

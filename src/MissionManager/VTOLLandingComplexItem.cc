@@ -13,10 +13,13 @@
 #include "QGCGeo.h"
 #include "SimpleMissionItem.h"
 #include "PlanMasterController.h"
+#include "FlightPathSegment.h"
 
 #include <QPolygonF>
 
 QGC_LOGGING_CATEGORY(VTOLLandingComplexItemLog, "VTOLLandingComplexItemLog")
+
+const QString VTOLLandingComplexItem::name(tr("VTOL Landing"));
 
 const char* VTOLLandingComplexItem::settingsGroup =            "VTOLLanding";
 const char* VTOLLandingComplexItem::jsonComplexItemTypeValue = "vtolLandingPattern";
@@ -38,11 +41,7 @@ const char* VTOLLandingComplexItem::_jsonStopTakingPhotosKey =         "stopTaki
 const char* VTOLLandingComplexItem::_jsonStopTakingVideoKey =          "stopVideoPhotos";
 
 VTOLLandingComplexItem::VTOLLandingComplexItem(PlanMasterController* masterController, bool flyView, QObject* parent)
-    : ComplexMissionItem        (masterController, flyView, parent)
-    , _sequenceNumber           (0)
-    , _dirty                    (false)
-    , _landingCoordSet          (false)
-    , _ignoreRecalcSignals      (false)
+    : LandingComplexItem        (masterController, flyView, parent)
     , _metaDataMap              (FactMetaData::createMapFromJsonFile(QStringLiteral(":/json/VTOLLandingPattern.FactMetaData.json"), this))
     , _landingDistanceFact      (settingsGroup, _metaDataMap[loiterToLandDistanceName])
     , _loiterAltitudeFact       (settingsGroup, _metaDataMap[loiterAltitudeName])
@@ -51,8 +50,6 @@ VTOLLandingComplexItem::VTOLLandingComplexItem(PlanMasterController* masterContr
     , _landingAltitudeFact      (settingsGroup, _metaDataMap[landingAltitudeName])
     , _stopTakingPhotosFact     (settingsGroup, _metaDataMap[stopTakingPhotosName])
     , _stopTakingVideoFact      (settingsGroup, _metaDataMap[stopTakingVideoName])
-    , _loiterClockwise          (true)
-    , _altitudesAreRelative     (true)
 {
     _editorQml = "qrc:/qml/VTOLLandingPatternEditor.qml";
     _isIncomplete = false;
@@ -69,31 +66,52 @@ VTOLLandingComplexItem::VTOLLandingComplexItem(PlanMasterController* masterContr
     connect(&_landingHeadingFact,       &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_recalcFromHeadingAndDistanceChange);
 
     connect(&_loiterRadiusFact,         &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_recalcFromRadiusChange);
-    connect(this,                       &VTOLLandingComplexItem::loiterClockwiseChanged,   this, &VTOLLandingComplexItem::_recalcFromRadiusChange);
+    connect(this,                       &VTOLLandingComplexItem::loiterClockwiseChanged,        this, &VTOLLandingComplexItem::_recalcFromRadiusChange);
 
-    connect(this,                       &VTOLLandingComplexItem::loiterCoordinateChanged,  this, &VTOLLandingComplexItem::_recalcFromCoordinateChange);
-    connect(this,                       &VTOLLandingComplexItem::landingCoordinateChanged, this, &VTOLLandingComplexItem::_recalcFromCoordinateChange);
+    connect(this,                       &VTOLLandingComplexItem::loiterCoordinateChanged,       this, &VTOLLandingComplexItem::_recalcFromCoordinateChange);
+    connect(this,                       &VTOLLandingComplexItem::landingCoordinateChanged,      this, &VTOLLandingComplexItem::_recalcFromCoordinateChange);
 
-    connect(&_stopTakingPhotosFact,     &Fact::valueChanged,                                            this, &VTOLLandingComplexItem::_signalLastSequenceNumberChanged);
-    connect(&_stopTakingVideoFact,      &Fact::valueChanged,                                            this, &VTOLLandingComplexItem::_signalLastSequenceNumberChanged);
+    connect(this,                       &VTOLLandingComplexItem::altitudesAreRelativeChanged,   this, &VTOLLandingComplexItem::_amslEntryAltChanged);
+    connect(this,                       &VTOLLandingComplexItem::altitudesAreRelativeChanged,   this, &VTOLLandingComplexItem::_amslExitAltChanged);
+    connect(_missionController,         &MissionController::plannedHomePositionChanged,         this, &VTOLLandingComplexItem::_amslEntryAltChanged);
+    connect(_missionController,         &MissionController::plannedHomePositionChanged,         this, &VTOLLandingComplexItem::_amslExitAltChanged);
+    connect(&_loiterAltitudeFact,       &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_amslEntryAltChanged);
+    connect(&_landingAltitudeFact,      &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_amslExitAltChanged);
+    connect(this,                       &VTOLLandingComplexItem::amslEntryAltChanged,           this, &VTOLLandingComplexItem::maxAMSLAltitudeChanged);
+    connect(this,                       &VTOLLandingComplexItem::amslExitAltChanged,            this, &VTOLLandingComplexItem::minAMSLAltitudeChanged);
 
-    connect(&_loiterAltitudeFact,       &Fact::valueChanged,                                            this, &VTOLLandingComplexItem::_setDirty);
-    connect(&_landingAltitudeFact,      &Fact::valueChanged,                                            this, &VTOLLandingComplexItem::_setDirty);
-    connect(&_landingDistanceFact,      &Fact::valueChanged,                                            this, &VTOLLandingComplexItem::_setDirty);
-    connect(&_landingHeadingFact,       &Fact::valueChanged,                                            this, &VTOLLandingComplexItem::_setDirty);
-    connect(&_loiterRadiusFact,         &Fact::valueChanged,                                            this, &VTOLLandingComplexItem::_setDirty);
-    connect(&_stopTakingPhotosFact,     &Fact::valueChanged,                                            this, &VTOLLandingComplexItem::_setDirty);
-    connect(&_stopTakingVideoFact,      &Fact::valueChanged,                                            this, &VTOLLandingComplexItem::_setDirty);
-    connect(this,                       &VTOLLandingComplexItem::loiterCoordinateChanged,          this, &VTOLLandingComplexItem::_setDirty);
-    connect(this,                       &VTOLLandingComplexItem::landingCoordinateChanged,         this, &VTOLLandingComplexItem::_setDirty);
-    connect(this,                       &VTOLLandingComplexItem::loiterClockwiseChanged,           this, &VTOLLandingComplexItem::_setDirty);
-    connect(this,                       &VTOLLandingComplexItem::altitudesAreRelativeChanged,      this, &VTOLLandingComplexItem::_setDirty);
+    connect(&_stopTakingPhotosFact,     &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_signalLastSequenceNumberChanged);
+    connect(&_stopTakingVideoFact,      &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_signalLastSequenceNumberChanged);
 
-    connect(this,                       &VTOLLandingComplexItem::altitudesAreRelativeChanged,      this, &VTOLLandingComplexItem::coordinateHasRelativeAltitudeChanged);
-    connect(this,                       &VTOLLandingComplexItem::altitudesAreRelativeChanged,      this, &VTOLLandingComplexItem::exitCoordinateHasRelativeAltitudeChanged);
+    connect(&_loiterAltitudeFact,       &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_setDirty);
+    connect(&_landingAltitudeFact,      &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_setDirty);
+    connect(&_landingDistanceFact,      &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_setDirty);
+    connect(&_landingHeadingFact,       &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_setDirty);
+    connect(&_loiterRadiusFact,         &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_setDirty);
+    connect(&_stopTakingPhotosFact,     &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_setDirty);
+    connect(&_stopTakingVideoFact,      &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_setDirty);
+    connect(this,                       &VTOLLandingComplexItem::loiterCoordinateChanged,       this, &VTOLLandingComplexItem::_setDirty);
+    connect(this,                       &VTOLLandingComplexItem::landingCoordinateChanged,      this, &VTOLLandingComplexItem::_setDirty);
+    connect(this,                       &VTOLLandingComplexItem::loiterClockwiseChanged,        this, &VTOLLandingComplexItem::_setDirty);
+    connect(this,                       &VTOLLandingComplexItem::altitudesAreRelativeChanged,   this, &VTOLLandingComplexItem::_setDirty);
 
-    connect(this,                       &VTOLLandingComplexItem::landingCoordSetChanged,           this, &VTOLLandingComplexItem::readyForSaveStateChanged);
-    connect(this,                       &VTOLLandingComplexItem::wizardModeChanged,                this, &VTOLLandingComplexItem::readyForSaveStateChanged);
+    connect(this,                       &VTOLLandingComplexItem::landingCoordSetChanged,        this, &VTOLLandingComplexItem::readyForSaveStateChanged);
+    connect(this,                       &VTOLLandingComplexItem::wizardModeChanged,             this, &VTOLLandingComplexItem::readyForSaveStateChanged);
+
+    connect(this,                       &VTOLLandingComplexItem::loiterCoordinateChanged,       this, &VTOLLandingComplexItem::complexDistanceChanged);
+    connect(this,                       &VTOLLandingComplexItem::loiterTangentCoordinateChanged,this, &VTOLLandingComplexItem::complexDistanceChanged);
+    connect(this,                       &VTOLLandingComplexItem::landingCoordinateChanged,      this, &VTOLLandingComplexItem::complexDistanceChanged);
+
+    connect(this,                       &VTOLLandingComplexItem::loiterTangentCoordinateChanged,this, &VTOLLandingComplexItem::_updateFlightPathSegmentsSignal);
+    connect(this,                       &VTOLLandingComplexItem::landingCoordinateChanged,      this, &VTOLLandingComplexItem::_updateFlightPathSegmentsSignal);
+    connect(&_loiterAltitudeFact,       &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_updateFlightPathSegmentsSignal);
+    connect(&_landingAltitudeFact,      &Fact::valueChanged,                                    this, &VTOLLandingComplexItem::_updateFlightPathSegmentsSignal);
+    connect(this,                       &VTOLLandingComplexItem::altitudesAreRelativeChanged,   this, &VTOLLandingComplexItem::_updateFlightPathSegmentsSignal);
+    connect(_missionController,         &MissionController::plannedHomePositionChanged,         this, &VTOLLandingComplexItem::_updateFlightPathSegmentsSignal);
+
+    // The follow is used to compress multiple recalc calls in a row to into a single call.
+    connect(this, &VTOLLandingComplexItem::_updateFlightPathSegmentsSignal, this, &VTOLLandingComplexItem::_updateFlightPathSegmentsDontCallDirectly,   Qt::QueuedConnection);
+    qgcApp()->addCompressedSignal(QMetaMethod::fromSignal(&VTOLLandingComplexItem::_updateFlightPathSegmentsSignal));
 
     if (_masterController->controllerVehicle()->apmFirmware()) {
         // ArduPilot does not support camera commands
@@ -445,39 +463,6 @@ bool VTOLLandingComplexItem::scanForItem(QmlObjectListModel* visualItems, bool f
     return true;
 }
 
-double VTOLLandingComplexItem::complexDistance(void) const
-{
-    return _loiterCoordinate.distanceTo(_landingCoordinate);
-}
-
-void VTOLLandingComplexItem::setLandingCoordinate(const QGeoCoordinate& coordinate)
-{
-    if (coordinate != _landingCoordinate) {
-        _landingCoordinate = coordinate;
-        if (_landingCoordSet) {
-            emit exitCoordinateChanged(coordinate);
-            emit landingCoordinateChanged(coordinate);
-        } else {
-            _ignoreRecalcSignals = true;
-            emit exitCoordinateChanged(coordinate);
-            emit landingCoordinateChanged(coordinate);
-            _ignoreRecalcSignals = false;
-            _landingCoordSet = true;
-            _recalcFromHeadingAndDistanceChange();
-            emit landingCoordSetChanged(true);
-        }
-    }
-}
-
-void VTOLLandingComplexItem::setLoiterCoordinate(const QGeoCoordinate& coordinate)
-{
-    if (coordinate != _loiterCoordinate) {
-        _loiterCoordinate = coordinate;
-        emit coordinateChanged(coordinate);
-        emit loiterCoordinateChanged(coordinate);
-    }
-}
-
 double VTOLLandingComplexItem::_mathematicAngleToHeading(double angle)
 {
     double heading = (angle - 90) * -1;
@@ -575,17 +560,6 @@ void VTOLLandingComplexItem::_recalcFromHeadingAndDistanceChange(void)
     }
 }
 
-QPointF VTOLLandingComplexItem::_rotatePoint(const QPointF& point, const QPointF& origin, double angle)
-{
-    QPointF rotated;
-    double radians = (M_PI / 180.0) * angle;
-
-    rotated.setX(((point.x() - origin.x()) * cos(radians)) - ((point.y() - origin.y()) * sin(radians)) + origin.x());
-    rotated.setY(((point.x() - origin.x()) * sin(radians)) + ((point.y() - origin.y()) * cos(radians)) + origin.y());
-
-    return rotated;
-}
-
 void VTOLLandingComplexItem::_recalcFromCoordinateChange(void)
 {
     // Fixed:
@@ -658,4 +632,16 @@ void VTOLLandingComplexItem::_signalLastSequenceNumberChanged(void)
 VTOLLandingComplexItem::ReadyForSaveState VTOLLandingComplexItem::readyForSaveState(void) const
 {
     return _landingCoordSet && !_wizardMode ? ReadyForSave : NotReadyForSaveData;
+}
+
+
+double VTOLLandingComplexItem::amslEntryAlt(void) const
+{
+    return _loiterAltitudeFact.rawValue().toDouble() + (_altitudesAreRelative ? _missionController->plannedHomePosition().altitude() : 0);
+}
+
+double VTOLLandingComplexItem::amslExitAlt(void) const
+{
+    return _landingAltitudeFact.rawValue().toDouble() + (_altitudesAreRelative ? _missionController->plannedHomePosition().altitude() : 0);
+
 }

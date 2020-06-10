@@ -250,12 +250,14 @@ QT += \
     positioning \
     qml \
     quick \
+    quickcontrols2 \
     quickwidgets \
     sql \
     svg \
     widgets \
     xml \
-    texttospeech
+    texttospeech \
+    core-private
 
 # Multimedia only used if QVC is enabled
 !contains (DEFINES, QGC_DISABLE_UVC) {
@@ -357,7 +359,7 @@ CustomBuild {
         $$PWD/qgroundcontrol.qrc \
         $$PWD/qgcresources.qrc \
         $$PWD/qgcimages.qrc \
-        $$PWD/InstrumentValueIcons.qrc \
+        $$PWD/resources/InstrumentValueIcons/InstrumentValueIcons.qrc \
 }
 
 # On Qt 5.9 android versions there is the following bug: https://bugreports.qt.io/browse/QTBUG-61424
@@ -433,6 +435,7 @@ contains (DEFINES, QGC_ENABLE_PAIRING) {
 #
 
 HEADERS += \
+    src/QmlControls/QmlUnitsConversion.h \
     src/api/QGCCorePlugin.h \
     src/api/QGCOptions.h \
     src/api/QGCSettings.h \
@@ -589,6 +592,7 @@ HEADERS += \
     src/MissionManager/GeoFenceController.h \
     src/MissionManager/GeoFenceManager.h \
     src/MissionManager/KMLPlanDomDocument.h \
+    src/MissionManager/LandingComplexItem.h \
     src/MissionManager/MissionCommandList.h \
     src/MissionManager/MissionCommandTree.h \
     src/MissionManager/MissionCommandUIInfo.h \
@@ -641,10 +645,11 @@ HEADERS += \
     src/QGCTemporaryFile.h \
     src/QGCToolbox.h \
     src/QmlControls/AppMessages.h \
-    src/QmlControls/CoordinateVector.h \
     src/QmlControls/EditPositionDialogController.h \
+    src/QmlControls/FlightPathSegment.h \
+    src/QmlControls/HorizontalFactValueGrid.h \
     src/QmlControls/InstrumentValueData.h \
-    src/QmlControls/InstrumentValueArea.h \
+    src/QmlControls/FactValueGrid.h \
     src/QmlControls/ParameterEditorController.h \
     src/QmlControls/QGCFileDialogController.h \
     src/QmlControls/QGCImageProvider.h \
@@ -654,6 +659,10 @@ HEADERS += \
     src/QmlControls/RCChannelMonitorController.h \
     src/QmlControls/RCToParamDialogController.h \
     src/QmlControls/ScreenToolsController.h \
+    src/QmlControls/TerrainProfile.h \
+    src/QmlControls/ToolStripAction.h \
+    src/QmlControls/ToolStripActionList.h \
+    src/QmlControls/VerticalFactValueGrid.h \
     src/QtLocationPlugin/QMLControl/QGCMapEngineManager.h \
     src/Settings/ADSBVehicleManagerSettings.h \
     src/Settings/AppSettings.h \
@@ -798,6 +807,7 @@ SOURCES += \
     src/MissionManager/GeoFenceController.cc \
     src/MissionManager/GeoFenceManager.cc \
     src/MissionManager/KMLPlanDomDocument.cc \
+    src/MissionManager/LandingComplexItem.cc \
     src/MissionManager/MissionCommandList.cc \
     src/MissionManager/MissionCommandTree.cc \
     src/MissionManager/MissionCommandUIInfo.cc \
@@ -847,10 +857,11 @@ SOURCES += \
     src/QGCTemporaryFile.cc \
     src/QGCToolbox.cc \
     src/QmlControls/AppMessages.cc \
-    src/QmlControls/CoordinateVector.cc \
     src/QmlControls/EditPositionDialogController.cc \
+    src/QmlControls/FlightPathSegment.cc \
+    src/QmlControls/HorizontalFactValueGrid.cc \
     src/QmlControls/InstrumentValueData.cc \
-    src/QmlControls/InstrumentValueArea.cc \
+    src/QmlControls/FactValueGrid.cc \
     src/QmlControls/ParameterEditorController.cc \
     src/QmlControls/QGCFileDialogController.cc \
     src/QmlControls/QGCImageProvider.cc \
@@ -860,6 +871,10 @@ SOURCES += \
     src/QmlControls/RCChannelMonitorController.cc \
     src/QmlControls/RCToParamDialogController.cc \
     src/QmlControls/ScreenToolsController.cc \
+    src/QmlControls/TerrainProfile.cc \
+    src/QmlControls/ToolStripAction.cc \
+    src/QmlControls/ToolStripActionList.cc \
+    src/QmlControls/VerticalFactValueGrid.cc \
     src/QtLocationPlugin/QMLControl/QGCMapEngineManager.cc \
     src/Settings/ADSBVehicleManagerSettings.cc \
     src/Settings/AppSettings.cc \
@@ -1366,7 +1381,9 @@ AndroidBuild {
 # Localization
 #
 
-TRANSLATIONS += $$files($$PWD/localization/qgc_*.ts)
+TRANSLATIONS += \
+    $$files($$PWD/translations/qgc_source_*.ts) \
+    $$files($$PWD/translations/qgc_json_*.ts)
 CONFIG+=lrelease embed_translations
 
 #-------------------------------------------------------------------------------------
